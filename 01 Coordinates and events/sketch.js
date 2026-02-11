@@ -14,12 +14,49 @@
 //
 //            screen is updated at bottom
 
+// ----- Global Variable Section -----
+// we can DECLARE variables here
+// we can INITIALIZE variables with
+//    simple data types
+//   > don't have access to system variable
+let circleX = 200;
+
 function setup() {
-  createCanvas(windowWidth, windowHeight);
+  createCanvas(500, 400);
 }
 
 function draw() {
+  //repeat over and over(automatically) 60fps
   background(0); //wipes the screen
-  //     X   Y   diameter
+  drawTwoCircles()
+  fivecircles()
+
+  //    R    G   B
+  fill(67, 108, 133)
+  stroke("436C85")
+  //     X         Y   diameter
+  circle(circleX, 100, 50);
+}
+
+
+function drawTwoCircles(){
+  //    R    G   B
+  fill(222, 153, 96)
+  stroke("DE9960")
+  //     X         Y   diameter
+  circle(circleX, 100, 50);
+
+  // SECOND CIRCLE
+  circle(width/2, height/2, 200)
+}
+
+function fivecircles(){
+  //    R    G   B
+  fill(222, 153, 96)
+  stroke("DE9960")
+  //     X         Y   diameter
   circle(0, 0, 50);
+
+  // SECOND CIRCLE
+  circle(400, 0, 50);
 }
