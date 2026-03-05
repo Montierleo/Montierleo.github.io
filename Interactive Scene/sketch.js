@@ -16,6 +16,10 @@ function draw() {
   drawBackground();
   drawwater();
   drawtree();
+
+  fill(0);
+  textSize(16);
+  text("Montier", windowWidth - 70, windowHeight - 10);
 }
 
 function drawBackground() {
@@ -27,8 +31,18 @@ function drawBackground() {
     background(20, 20, 60);
   }
 
+  else if(currentBg == 2) {
+    background(100, 200, 200);
+  }
+
   else if(currentBg == 3) {
     background(200, 200, 200);
+  }
+}
+
+function keyPressed() {
+  if(keyCode === LEFT_ARROW) {
+    treeX = treeX - 10;
   }
 }
 
@@ -40,6 +54,10 @@ function mousePressed() {
       currentBg = 0;
     }
   }
+
+  if (mouseButton === LEFT) {
+    
+  }
 }
 
 function drawtree(){
@@ -47,7 +65,7 @@ function drawtree(){
   fill("White");
   triangle(mouseX-30, mouseY+113, mouseX+50, mouseY+113, mouseX+10, mouseY+250)
   
-  fill("white")
+  fill(215, 215, 215)
   rect(mouseX-40, mouseY+113, 100, 25)
 
   fill(83, 50, 26);
