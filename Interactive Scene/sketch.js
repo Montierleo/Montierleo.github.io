@@ -5,12 +5,14 @@
 let currentBg = (0);
 let treeX = 200
 let treeY = 300;
+let treeSize = 1;
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
+  document.body.style.cursor = 'none';
 }
 
-document.body.style.cursor = 'none';
+
 
 function draw() {
   drawBackground();
@@ -61,6 +63,10 @@ function mousePressed() {
 }
 
 function drawtree(){
+  push();
+  translate(mouseX, mouseY);
+  scale()
+
   noStroke();
   fill("White");
   triangle(mouseX-30, mouseY+113, mouseX+50, mouseY+113, mouseX+10, mouseY+250)
