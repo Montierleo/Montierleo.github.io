@@ -10,7 +10,7 @@ function setup() {
 }
 
 function draw() {
-  background(0,20);
+  background(0,50);
   //if no deletions, loop by item
   for(let n of nodes){
     n.move();
