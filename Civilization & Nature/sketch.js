@@ -2,16 +2,26 @@
 // Montier
 // May 12
 
+// Canvas
+let canvasW = 900;
+let canvasH = 600;
+
+// Text
+let message = "Hello world";
+let fontSizeValue = 32;
+let textColor = "#111111";
+let textX = 100;
+let textY = 100;
 
 function setup() {
-  createCanvas (900, 600);
+  createCanvas (canvasW, canvasH);
 }
 
 function draw() {
   background(245);
 
-  fill(20);
-  textSize(32);
+  fill(textColor);
+  textSize(fontSizeValue);
 
-  text("Hello World", 100, 100)
+  text(message, textX, textY)
 }
