@@ -55,16 +55,21 @@ function draw() {
   }
 
   if(frameCount % 60 == 0){
-    dots.push({
+    // New Dots
+    let newDot = {
       x: random(100, 800),
-      y: random(100, 500),
+      y: random(100, 500)
       lineLength: random(50, 100)
-    }); 
+    };
 
+    dots.push(newDot);
+
+    // Random Character
     let randomChar = random(chars);
-    randomChar.targetX = random(100, 800);
-    randomChar.targetY = random(100, 500);
-    
+
+    // fly to dot
+    randomChar.targetX = newDot.x;
+    randomChar.targetY = newDot.y;
   }
   
 }
