@@ -2,6 +2,10 @@
 // Montier
 // May 12
 
+
+//                                  GLOBAL VARIABLE AREA
+//============================================================================================
+
 // Canvas
 let canvasW = 900;
 let canvasH = 600;
@@ -11,6 +15,7 @@ let chars = [];
 
 // Dots
 let dots = [];
+let allCharactersAttracted = false;
 
 // Text
 let message = "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890";
@@ -23,6 +28,14 @@ let textY = 100;
 let attractMinCount = 10;
 let attractMaxCount = 25;
 
+// Safety Space bettween attracted characters
+let targetMinRadius = 25;
+let targetMaxRadius = 70;
+let safeDistance = 18;
+let maxAttempts = 100;
+
+//============================================================================================
+
 function setup() {
   createCanvas (canvasW, canvasH);
 
@@ -32,7 +45,7 @@ function setup() {
 function draw() { // Fix up: Order
   background(245);
 
-  if (frameCount % 60 == 0) {
+  if(frameCount % 60 == 0 && allCharactersAttracted == false){
     // New Dot
     let newDot = {
       x: random(100, 800),
@@ -56,13 +69,59 @@ function draw() { // Fix up: Order
     let attractCount = floor(random(attractMinCount, attractMaxCount + 1)); // Decide how many characters to attract this time
     attractCount = min(attractCount, availableChars.length);
 
+    let targetPositions = [];
+
     for(let i = 0; i < attractCount; i++){
       let c = availableChars[i];
+      
+      let foundSafePosition = false;
+      let attempts = 0
 
-      c.targetX = newDot.x;
-      c.targetY = newDot.y;
+      while(foundSafePosition == false && attempts < maxAttempts){
+        let angle = random(TWO_PI);
+        let radius = random(targetMinRadius, targetMaxRadius);
+
+        let newX = newDot.x + cos(angle) * radius;
+        let newY = newDot.y + sin(angle) * radius;
+
+        let isSafe = true;
+
+        for(let p of targetPositions){
+          let distanceToOther = dist(newX, newY, p.x, p.y);
+
+          if(distanceToOther < safeDistance){
+            isSafe = false;
+            break;
+          }
+        }
+
+        if(isSafe == true){
+          c.targetX = newX;
+          c.targetY = newY;
+
+          targetPositions.push({
+            x: newX,
+            y: newY
+          })
+
+          foundSafePosition = true;
+        }
+
+        attempts++;
+      }
+
+      if(foundSafePosition = false){
+        let angle = random(TWO_PI);
+        let radius = random(targetMinRadius, targetMaxRadius);
+
+        c.targetX = newDot.x + cos(angle) * radius;
+        c.targetY = newDot.y + sin(angle) * radius;
+      }
+      
       c.isAttracted = true; // mark that has been attracted and will not be sucked away by other dots again.
     }
+
+    checkAllCharacters();
   }
 
   // Draw dots and lines first
@@ -124,5 +183,17 @@ function splitText(){
     });
 
     x += w + 2;
+  }
+}
+
+function checkAllCharacters(){ // Check how many characters are still unattracted.
+  let remainingCharacters = 0;
+  for(let c of chars){
+    if(c.isAttracted == false && c.char !== ""){
+      remainingCharacters++;
+    }
+  }
+  if(remainingCharacters == 0){
+    allCharactersAttracted = true;
   }
 }
