@@ -24,6 +24,10 @@ let textColor = "#111111";
 let textX = 100;
 let textY = 100;
 
+// When Attract
+let attractedFontSize = 50;
+let sizeLerpSpeed = 0.08;
+
 // AttractCount
 let attractMinCount = 10;
 let attractMaxCount = 25;
@@ -62,6 +66,7 @@ function draw() { // Fix up: Order
       if(c.isAttracted == false && c.char !== ""){
         availableChars.push(c);
       }
+
     }
 
     shuffle(availableChars, true); // shuffle the order of characters
@@ -118,6 +123,7 @@ function draw() { // Fix up: Order
         c.targetY = newDot.y + sin(angle) * radius;
       }
       
+      c.targetSize = attractedFontSize;
       c.isAttracted = true; // mark that has been attracted and will not be sucked away by other dots again.
     }
 
@@ -146,7 +152,11 @@ function draw() { // Fix up: Order
     c.x = lerp(c.x, c.targetX, 0.05);
     c.y = lerp(c.y, c.targetY, 0.05);
 
+    c.size =  lerp(c.size, c.targetSize, sizeLerpSpeed);
+
+    textSize(c.size);
     text(c.char, c.x, c.y);
+
   }
 }
 
@@ -166,7 +176,6 @@ function splitText(){
     let ch = message[i];
     let w = textWidth(ch);
     
-
     // Automatic line change
     if(x + w > marginLeft + maxWidth){
       x = marginLeft
@@ -177,8 +186,13 @@ function splitText(){
       char: ch,
       x: x,
       y: y,
+
       targetX: x,
       targetY: y,
+
+      size: fontSizeValue,
+      targetSize: fontSizeValue,
+      
       isAttracted: false
     });
 
