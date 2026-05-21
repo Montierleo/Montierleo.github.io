@@ -24,6 +24,21 @@ let textColor = "#666666";
 let textX = 100;
 let textY = 100;
 
+// Title
+let titleEnglish = "Civilization & Nature";
+let titleChinese = "文明与自然";
+
+let titleFont = "Georgia";
+let titleEnglishSize = 39;
+let titleChineseSize = 30;
+
+let titleColor = "#63a648";
+let titleX = 28; // Control the left and right positions of the title
+let titleY = 700; // Control the up and down positions of the title
+
+let titleLineSpacing = 34; // Control the distance between the two lines
+let titleLetterSpacing = 0; // Control the distance between the two letters
+
 // Stroke parameters
 let textStrokeColor = "#ffffff";
 let textStrokeWeightValue = 0; // There is no stroke in the initial text.
@@ -191,7 +206,7 @@ function draw() { // Fix up: Order
 
       c.vx *= friction;
       c.vy *= friction;
-      
+
       c.x += c.vx;
       c.y += c.vy;
     }
@@ -232,6 +247,8 @@ function draw() { // Fix up: Order
     text(c.char, c.x, c.y);
 
   }
+
+  drawTitle();
 }
 
 function splitText(){
@@ -305,4 +322,24 @@ function checkAllCharacters(){ // Check how many characters are still unattracte
   if(remainingCharacters == 0){
     allCharactersAttracted = true;
   }
+}
+
+function drawTitle(){
+  push();
+
+  textFont(titleFont);
+  textAlign(LEFT, TOP);
+  fill(titleColor);
+  noStroke();
+
+  // English title
+  textSize(titleEnglishSize);
+  text(titleEnglish, titleX, titleY);
+
+
+  // Chinese title
+  textSize(titleChineseSize);
+  text(titleChinese, titleX, titleY + titleLineSpacing);
+
+  pop();
 }
