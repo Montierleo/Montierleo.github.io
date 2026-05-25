@@ -76,6 +76,16 @@ let maxAttempts = 1000;
 let spacePressed = false;
 let growRate = 4;
 
+// Leaf Wiggle
+let leafSensorRadius = 55 ; // How close the mouse is to the charcter will effect it
+let leafPushStrength = 0.65; // The intensity of the movement
+let leafReturnStrength = 0.08; // Rebound strength
+let leafFriction = 0.82; // Shaking attenuation speed
+let leafMaxOffset = 18; //Avoid characters being thrown too far away
+
+let previousMouseX = 0;
+let previousMouseY = 0;
+
 //============================================================================================
 
 function setup() {
@@ -166,12 +176,17 @@ function draw() { // Fix up: Order
       strokeWeight(c.currentStrokeWeight);
     }
 
+    updateLeafWiggle(c);
+
     textSize(c.size);
-    text(c.char, c.x, c.y);
+    text(c.char, c.x + c.leafOffsetX, c.y + c.leafOffsetY);
 
   }
 
   drawTitle();
+
+  previousMouseX = mouseX;
+  previousMouseY = mouseY;
 }
 
 function growOneTree(){
@@ -304,6 +319,11 @@ function splitText(){
       vx: 0, // horizontal velocity
       vy: 0, // vertical velocity
 
+      leafOffsetX: 0,
+      leafOffsetY: 0,
+      leafVX: 0,
+      leafVY: 0,
+
       targetX: x,
       targetY: y,
 
@@ -336,6 +356,64 @@ function checkAllCharacters(){ // Check how many characters are still unattracte
   if(remainingCharacters == 0){
     allCharactersAttracted = true;
   }
+}
+
+function updateLeafWiggle(c){
+  // Only the characters who are attracted shake like leaves.
+  if(c.isAttracted == false){
+    return;
+  }
+
+  // Mouse movement speed
+  let mouseVX = mouseX - previousMouseX;
+  let mouseVY = mouseY - previousMouseY;
+  let mouseSpeed = dist(mouseX, mouseY, previousMouseX, previousMouseY);
+
+  // The actual display position of the character
+  let displayX = c.x + c.leafOffsetX;
+  let displayY = c.y + c.leafOffsetY;
+
+  let d = dist(mouseX, mouseY, displayX, displayY);
+
+  // The mouse is within the range of influence.
+  if(d < leafSensorRadius){
+    let influence = map(d, 0, leafSensorRadius, 1, 0);
+    influence = constrain(influence, 0, 1);
+
+    // The faster the mouse moves, the more obvious the movement will be.
+    let speedFacter = constrain(mouseSpeed / 20, 0, 1.5);
+
+    // The direction of pushing outward from the mouse
+    let awayX = displayX - mouseX;
+    let awayY = displayY - mouseY;
+    
+    let mag = sqrt(awayX * awayX + awayY * awayY);
+
+    if(mag > 0){
+      awayX /= mag;
+      awayY /= mag;
+    }
+
+    // Add a little movement direction of the mouse to make it look like
+    // it's really swept by a hand
+    c.leafVX += (awayX * leafPushStrength + mouseVX * 0.08) * influence * speedFacter;
+    c.leafVY += (awayY * leafPushStrength + mouseVY * 0.08) * influence * speedFacter;
+  }
+
+  // Rebound: let the leaves slowly return to their original position.
+  c.leafVX +=  -c.leafOffsetX * leafReturnStrength;
+  c.leafVY +=  -c.leafOffsetY * leafReturnStrength;
+
+  // Friction: Let the shaking gradually stop.
+  c.leafVX *= leafFriction;
+  c.leafVY *= leafFriction;
+
+  c.leafOffsetX += c.leafVX;
+  c.leafOffsetY += c.leafVY;
+
+  // Limit the maximum offset to prevent moving so far.
+  c.leafOffsetX = constrain(c.leafOffsetX, -leafMaxOffset, leafMaxOffset);
+  c.leafOffsetY = constrain(c.leafOffsetY, -leafMaxOffset, leafMaxOffset);
 }
 
 function drawTitle(){
