@@ -77,7 +77,7 @@ let spacePressed = false;
 let growRate = 4;
 
 // Leaf Wiggle
-let leafSensorRadius = 55 ; // How close the mouse is to the charcter will effect it
+let leafSensorRadius = 70; // How close the mouse is to the charcter will effect it
 let leafPushStrength = 0.65; // The intensity of the movement
 let leafReturnStrength = 0.08; // Rebound strength
 let leafFriction = 0.82; // Shaking attenuation speed
@@ -85,6 +85,28 @@ let leafMaxOffset = 18; //Avoid characters being thrown too far away
 
 let previousMouseX = 0;
 let previousMouseY = 0;
+
+//=============================== Harvest / Wheat Mode =======================================
+let harvestMode = false;
+let harvestStartFrame = 0;
+
+let harvestOrder = [];
+let harvestSpeed = 4; //
+let harvestFadeSpeed = 0.04; //
+
+let harvestTextColor = "#D99A00"; //
+let wheatStalks = [];
+
+let wheatCountPerClick = 90; //
+let wheatBaseYOffset = 40; //
+let wheatGrowSpeed = 0.018;
+
+let wheatStemColor1 = "#7FAE34";
+let wheatStemColor2 = "#C9841A";
+let wheatGrainColor1 = "#FFD33D";
+let wheatGrainColor2 = "#E89A18";
+
+let wheatChars = "Naturecivilizationgrowthseasonabundance"
 
 //============================================================================================
 
@@ -101,6 +123,7 @@ function setup() {
   ];
 
   splitText();
+  prepareHarvestOrder();
 }
 
 function draw() { // Fix up: Order
@@ -123,6 +146,8 @@ function draw() { // Fix up: Order
 
     ellipse(d.x, d.y, 2.5);
   }
+
+  updateHarvestText();
 
   // Draw text after dots, so text stays on top
   fill(textColor);
@@ -164,7 +189,14 @@ function draw() { // Fix up: Order
       strokeLerpSpeed
     );
 
-    fill(c.currentColor);
+    let displayColor = lerpColor(
+      color(c.currentColor),
+      color(harvestTextColor),
+      c.harvestProgress || 0
+    );
+    
+    fill(displayColor);
+    
 
     if(c.currentStrokeWeight <= 0.001){ 
       noStroke();
@@ -183,6 +215,10 @@ function draw() { // Fix up: Order
 
   }
 
+  // Draw wheat after text, so wheat appears above the article
+  updateAndDrawWheat();
+
+  // Draw title last, so the title stays clear
   drawTitle();
 
   previousMouseX = mouseX;
@@ -315,9 +351,13 @@ function splitText(){
       char: ch,
       x: x,
       y: y,
+      originalX: x,
+      originalY: y,
 
       vx: 0, // horizontal velocity
       vy: 0, // vertical velocity
+
+      harvestProgress: 0,
 
       leafOffsetX: 0,
       leafOffsetY: 0,
@@ -414,6 +454,208 @@ function updateLeafWiggle(c){
   // Limit the maximum offset to prevent moving so far.
   c.leafOffsetX = constrain(c.leafOffsetX, -leafMaxOffset, leafMaxOffset);
   c.leafOffsetY = constrain(c.leafOffsetY, -leafMaxOffset, leafMaxOffset);
+
+}
+
+function prepareHarvestOrder(){
+  harvestOrder = [...chars];
+
+  harvestOrder.sort((a, b) => {
+    let ay = a.originalY ?? a.y;
+    let by = b.originalY ?? b.y;
+    let ax = a.originalX ?? a.x;
+    let bx = b.originalX ?? b.x;
+
+    // if the y gap is obvious, sort by row first.
+    if (abs(ay - by) > fontSizeValue * 0.7){
+      return ay - by;
+    }
+
+    // in the same line, from left to right
+    return ax - bx;
+  });
+
+  for (let i = 0; i < harvestOrder.length; i++){
+    harvestOrder[i].harvestIndex = i;
+  }
+}
+
+
+function startHarvest(){
+  harvestMode = true;
+  harvestStartFrame = frameCount;
+
+  // Reset the text maturity state
+  for(let c of chars){
+    c.harvestProgress = 0;
+  }
+
+  // Empty the old wheat ears and then generate the new one
+  wheatStalks = [];
+  createWheatField();
+}
+
+function updateHarvestText(){
+  if (!harvestMode) return;
+  
+  let activeCount = (frameCount - harvestStartFrame) * harvestSpeed;
+
+  for(let i = 0; i < harvestOrder.length; i++){
+    let c = harvestOrder[i];
+
+    if(i < activeCount){
+      c.harvestProgress = min(1, c.harvestProgress + harvestFadeSpeed);
+    }
+  }
+}
+
+function createWheatField(){
+  let baseY = height - wheatBaseYOffset;
+
+  for(let i = 0; i < wheatCountPerClick; i++){
+    let x = random(width * 0.08, width * 0.92);
+    wheatStalks.push(new WheatStalk(x, baseY));
+  }
+}
+
+function updateAndDrawWheat(){
+  for(let w of wheatStalks){
+    w.update();
+    w.display();
+  }
+}
+
+class WheatStalk {
+  constructor(x, baseY){
+    this.x = x;
+    this.baseY = baseY;
+
+    this.h = random(180, 430);
+    this.lean = random(-45, 45);
+    this.grow = 0;
+
+    this.seed = random(1000);
+    this.side = random([-1, 1]);
+
+    this.headLength = random(45, 95);
+    this.grainCount = int(random(12, 26));
+
+    this.stemWeight = random(0.5, 1.3);
+    this.stemAlpha = random(100, 210);
+
+    this.stemColor = random() < 0.55 ? wheatStemColor1 : wheatStemColor2;
+    this.grainColor = random() < 0.55 ? wheatGrainColor1 : wheatGrainColor2;
+
+    this.headAngle = random(-0.15, 0.15) + this.side * random(0.25, 0.55);
+
+    // Pre-generate grains so they do not flicker every frame
+    this.grains = [];
+
+    for(let i = 0; i < this.grainCount; i++){
+      let t = i / this.grainCount;
+
+      this.grains.push({
+        t: t,
+        ch: wheatChars.charAt(int(random(wheatChars.length))),
+        offsetX: random(-5, 5),
+        offsetY: random(-4, 4),
+        spread: sin(t * PI) * random(8, 22),
+        size: random(7, 14),
+        rotation: random(-0.7, 0.7),
+        alpha: map(t, 0, 1, 230, 90)
+      });
+    }
+  }
+
+  update(){
+    this.grow = min(1, this.grow + wheatGrowSpeed);
+  }
+
+  display(){
+    push();
+
+    let g = easeOutCubic(this.grow);
+
+    // Gentle natural sway
+    let sway = sin(frameCount * 0.025 + this.seed) * 7;
+
+    let topX = this.x + (this.lean + sway) * g;
+    let topY = this.baseY - this.h * g;
+
+    // Draw stem
+    let stemCol = color(this.stemColor);
+    stemCol.setAlpha(this.stemAlpha);
+
+    stroke(stemCol);
+    strokeWeight(this.stemWeight);
+    noFill();
+
+    bezier(
+      this.x,
+      this.baseY,
+      this.x + this.lean * 0.15,
+      this.baseY - this.h * 0.35 * g,
+      this.x + this.lean * 0.55,
+      this.baseY - this.h * 0.7 * g,
+      topX,
+      topY
+    );
+
+    // Draw wheat head after the stem grows halfway
+    if(this.grow > 0.45){
+      let headGrow = map(this.grow, 0.45, 1, 0, 1);
+      headGrow = constrain(headGrow, 0, 1);
+      headGrow = easeOutCubic(headGrow);
+
+      this.drawHead(topX, topY, headGrow);
+    }
+
+    pop();
+  }
+
+  drawHead(topX, topY, headGrow){
+    noStroke();
+    textAlign(CENTER, CENTER);
+    textFont("Georgia");
+
+    for(let grain of this.grains){
+      // Let grains appear gradually from bottom to top
+      let appear = map(headGrow - grain.t, 0, 0.35, 0, 1);
+      appear = constrain(appear, 0, 1);
+
+      if(appear <= 0){
+        continue;
+      }
+
+      let t = grain.t;
+
+      let distance = this.headLength * t;
+      let gx = topX + cos(this.headAngle) * distance;
+      let gy = topY + sin(this.headAngle) * distance + t * 35;
+
+      gx += grain.offsetX;
+      gy += grain.offsetY;
+
+      // Side spread makes the head look like a real wheat ear
+      gx += this.side * grain.spread;
+
+      let grainCol = color(this.grainColor);
+      grainCol.setAlpha(grain.alpha * appear);
+
+      fill(grainCol);
+      textSize(grain.size * appear);
+
+      push();
+      translate(gx, gy);
+      rotate(this.headAngle + grain.rotation);
+      text(grain.ch, 0, 0);
+      pop();
+    }
+  }
+}
+
+function easeOutCubic(x){
+  return 1 - pow(1 - x, 3);
 }
 
 function drawTitle(){
@@ -435,6 +677,12 @@ function drawTitle(){
   text(titleChinese, titleX, titleY + titleLineSpacing);
 
   pop();
+}
+
+function mousePressed(){
+  if(mouseButton === LEFT){
+    startHarvest();
+  }
 }
 
 function keyPressed(){
