@@ -108,10 +108,24 @@ let wheatGrainColor2 = "#E89A18";
 
 let wheatChars = "Naturecivilizationgrowthseasonabundance"
 
+let leftHeld = false;
+let rightHeld = false;
+
+let harvestCursor = 0; // currently how many chars are unlocked for ripening
+let fallTriggerRate = 4; // every few frames, start dropping some golden chars
+let fallGravity = 0.22;
+let fallSideDrift = 0.35;
+
+let wheatSpawnBaseY = 0; // where wheat grows from near the bottom
+
+
 //============================================================================================
 
 function setup() {
-  createCanvas (canvasW, canvasH);
+  let cnv = createCanvas(canvasW, canvasH);
+  cnv.elt.oncontextmenu = () => false; // prevent the right-click menu from popping up.
+
+  wheatSpawnBaseY = height;
 
   textFont("Georgia");
   textAlign(LEFT, TOP);
@@ -148,13 +162,19 @@ function draw() { // Fix up: Order
   }
 
   updateHarvestText();
+  triggerGoldenCharFall();
+  updateFallingChars();
 
   // Draw text after dots, so text stays on top
   fill(textColor);
   noStroke();
   textSize(fontSizeValue);
 
-  for (let c of chars) {
+  for(let c of chars){
+    if(c.visible == false){
+      continue;
+    }
+
     if(c.isAttracted == true){
       let dx = c.targetX - c.x;
       let dy = c.targetY - c.y;
@@ -189,14 +209,22 @@ function draw() { // Fix up: Order
       strokeLerpSpeed
     );
 
-    let displayColor = lerpColor(
-      color(c.currentColor),
-      color(harvestTextColor),
-      c.harvestProgress || 0
-    );
-    
+    let displayColor;
+
+    if(c.isAttracted == true){
+      // Forest system characters stay as green leaves
+      displayColor = color(c.currentColor);
+    }
+    else{
+      // Only non-forest characters can ripen into golden color
+      displayColor = lerpColor(
+        color(c.currentColor),
+        color(harvestTextColor),
+        c.harvestProgress || 0
+      );
+    }
+
     fill(displayColor);
-    
 
     if(c.currentStrokeWeight <= 0.001){ 
       noStroke();
@@ -208,7 +236,9 @@ function draw() { // Fix up: Order
       strokeWeight(c.currentStrokeWeight);
     }
 
-    updateLeafWiggle(c);
+    if(c.isFalling == false){
+      updateLeafWiggle(c);
+    }
 
     textSize(c.size);
     text(c.char, c.x + c.leafOffsetX, c.y + c.leafOffsetY);
@@ -230,6 +260,30 @@ function growOneTree(){
     return;
   }
 
+
+  let availableChars = [];
+
+
+  // Find characters that can still become leaves in the forest system
+  for(let c of chars){
+    if(
+      c.isAttracted == false &&
+      c.isGolden == false &&
+      c.isFalling == false &&
+      c.visible == true &&
+      c.char !== " "
+    ){
+      availableChars.push(c);
+    }
+  }
+
+
+  // If there are no available characters, do not grow an empty tree trunk
+  if(availableChars.length === 0){
+    return;
+  }
+
+
   // New Dot
   let newDot = {
     x: random(10, canvasW - 10),
@@ -237,42 +291,41 @@ function growOneTree(){
     lineLength: random(70, 100)
   };
 
+
   dots.push(newDot);
 
-  //
-  let availableChars = []; // It means character which did not be attract
 
-  for(let c of chars){
-    if(c.isAttracted == false && c.char !== " "){
-      availableChars.push(c);
-    }
+  shuffle(availableChars, true);
 
-  }
 
-  shuffle(availableChars, true); // shuffle the order of characters
-
-  let attractCount = floor(random(attractMinCount, attractMaxCount + 1)); // Decide how many characters to attract this time
+  let attractCount = floor(random(attractMinCount, attractMaxCount + 1));
   attractCount = min(attractCount, availableChars.length);
+
 
   let targetPositions = [];
 
+
   for(let i = 0; i < attractCount; i++){
     let c = availableChars[i];
-    
+
+
     let foundSafePosition = false;
-    let attempts = 0
+    let attempts = 0;
+
 
     while(foundSafePosition == false && attempts < maxAttempts){
       let angle = random(TWO_PI);
       let radius = random(targetMinRadius, targetMaxRadius);
-
       let newX = newDot.x + cos(angle) * radius;
       let newY = newDot.y + sin(angle) * radius;
 
+
       let isSafe = true;
+
 
       for(let p of targetPositions){
         let distanceToOther = dist(newX, newY, p.x, p.y);
+
 
         if(distanceToOther < safeDistance){
           isSafe = false;
@@ -280,41 +333,51 @@ function growOneTree(){
         }
       }
 
+
       if(isSafe == true){
         c.targetX = newX;
         c.targetY = newY;
 
+
         targetPositions.push({
           x: newX,
           y: newY
-        })
+        });
+
 
         foundSafePosition = true;
       }
 
+
       attempts++;
     }
+
 
     if(foundSafePosition == false){
       let angle = random(TWO_PI);
       let radius = random(targetMinRadius, targetMaxRadius);
-
       c.targetX = newDot.x + cos(angle) * radius;
       c.targetY = newDot.y + sin(angle) * radius;
     }
-    
+
     c.targetSize = attractedFontSize;
     c.targetColor = random(attractedTextColors);
-
     c.targetStrokeColor = attractedTextStrokeColor;
     c.targetStrokeWeight = attractedTextStrokeWeightValue;
 
-    c.isAttracted = true; // mark that has been attracted and will not be sucked away by other dots again.
+    // Once it enters the forest system,
+    // it should no longer belong to the wheat system.
+    c.harvestProgress = 0;
+    c.isGolden = false;
+    c.isFalling = false;
+
+    c.isAttracted = true;
+
   }
+
 
   checkAllCharacters();
 }
-
 
 function splitText(){
   textSize(fontSizeValue);
@@ -358,6 +421,13 @@ function splitText(){
       vy: 0, // vertical velocity
 
       harvestProgress: 0,
+      
+      isGolden: false,
+      isFalling: false,
+      hasFallenAway: false,
+      visible: true,
+      fallVX: 0,
+      fallVY: 0,
 
       leafOffsetX: 0,
       leafOffsetY: 0,
@@ -386,15 +456,26 @@ function splitText(){
   }
 }
 
-function checkAllCharacters(){ // Check how many characters are still unattracted.
+function checkAllCharacters(){
   let remainingCharacters = 0;
+
   for(let c of chars){
-    if(c.isAttracted == false && c.char !== " "){
+    if(
+      c.isAttracted == false &&
+      c.isGolden == false &&
+      c.isFalling == false &&
+      c.visible == true &&
+      c.char !== " "
+    ){
       remainingCharacters++;
     }
   }
+
   if(remainingCharacters == 0){
     allCharactersAttracted = true;
+  }
+  else{
+    allCharactersAttracted = false;
   }
 }
 
@@ -496,18 +577,106 @@ function startHarvest(){
 }
 
 function updateHarvestText(){
-  if (!harvestMode) return;
-  
-  let activeCount = (frameCount - harvestStartFrame) * harvestSpeed;
+  if(leftHeld){
+    harvestCursor = min(harvestOrder.length, harvestCursor + harvestSpeed);
+  }
 
   for(let i = 0; i < harvestOrder.length; i++){
     let c = harvestOrder[i];
 
-    if(i < activeCount){
+    // Characters that already belong to the forest system
+    // should not be affected by the wheat system.
+    if(
+      c.isAttracted == true ||
+      c.visible == false ||
+      c.isFalling == true ||
+      c.hasFallenAway == true ||
+      c.char === " "
+    ){
+      continue;
+    }
+
+    if(i < harvestCursor){
       c.harvestProgress = min(1, c.harvestProgress + harvestFadeSpeed);
+    }
+
+    if(c.harvestProgress >= 0.999){
+      c.harvestProgress = 1;
+      c.isGolden = true;
     }
   }
 }
+
+
+function triggerGoldenCharFall(){
+  if(!rightHeld){
+    return;
+  }
+
+  if(frameCount % fallTriggerRate !== 0){
+    return;
+  }
+
+  let candidates = [];
+
+  for(let c of chars){
+    if(
+      c.isGolden == true &&
+      c.isAttracted == false &&
+      c.isFalling == false &&
+      c.hasFallenAway == false &&
+      c.visible == true &&
+      c.char !== " "
+    ){
+      candidates.push(c);
+    }
+  }
+
+  if(candidates.length > 0){
+    let c = random(candidates);
+    c.isFalling = true;
+    c.fallVX = random(-fallSideDrift, fallSideDrift);
+    c.fallVY = random(1.2, 2.6);
+  }
+}
+
+function updateFallingChars(){
+  for(let c of chars){
+    if(c.isFalling){
+      c.fallVY += fallGravity;
+      c.x += c.fallVX;
+      c.y += c.fallVY;
+
+      // falling chars should no longer wiggle like leaves
+      c.leafOffsetX = 0;
+      c.leafOffsetY = 0;
+      c.leafVX = 0;
+      c.leafVY = 0;
+
+      // When the character disappears from the bottom, 
+      // grow wheat from the same ground line.
+      if(c.y + c.size >= wheatSpawnBaseY){
+        let landingX = c.x;
+
+        c.isFalling = false;
+        c.hasFallenAway = true;
+        c.visible = false;
+
+        spawnWheatAt(landingX, wheatSpawnBaseY);
+      }
+    }
+  }
+}
+
+function spawnWheatAt(x, baseY){
+  if(baseY === undefined || isNaN(baseY)){
+    baseY = height;
+  }
+
+  let safeX = constrain(x, 15, width - 15);
+  wheatStalks.push(new WheatStalk(safeX, baseY));
+}
+
 
 function createWheatField(){
   let baseY = height - wheatBaseYOffset;
@@ -527,8 +696,12 @@ function updateAndDrawWheat(){
 
 class WheatStalk {
   constructor(x, baseY){
+    if(baseY === undefined || isNaN(baseY)){
+      baseY = height;
+    }
+  
     this.x = x;
-    this.baseY = baseY;
+    this.baseY = baseY;  
 
     this.h = random(180, 430);
     this.lean = random(-45, 45);
@@ -543,8 +716,9 @@ class WheatStalk {
     this.stemWeight = random(0.5, 1.3);
     this.stemAlpha = random(100, 210);
 
-    this.stemColor = random() < 0.55 ? wheatStemColor1 : wheatStemColor2;
-    this.grainColor = random() < 0.55 ? wheatGrainColor1 : wheatGrainColor2;
+    this.stemColor = random(attractedTextColors);
+    this.grainColor = random() < 0.5 ? wheatGrainColor1 : wheatGrainColor2;
+
 
     this.headAngle = random(-0.15, 0.15) + this.side * random(0.25, 0.55);
 
@@ -681,8 +855,27 @@ function drawTitle(){
 
 function mousePressed(){
   if(mouseButton === LEFT){
-    startHarvest();
+    leftHeld = true;
+    harvestMode = true;
   }
+
+  if(mouseButton === RIGHT){
+    rightHeld = true;
+  }
+
+  return false;
+}
+
+function mouseReleased(){
+  if(mouseButton === LEFT){
+    leftHeld = false;
+  }
+
+  if(mouseButton === RIGHT){
+    rightHeld = false;
+  }
+
+  return false;
 }
 
 function keyPressed(){

@@ -1,6 +1,5 @@
-// Project Title
-// Your Name
-// Date
+// Chip
+// Montier
 //
 // Extra for Experts:
 // - describe what you did to take this project "above and beyond"
@@ -8,7 +7,7 @@
 let chip;
 
 function preload(){
-  chip = loadImage("chip.jpg");
+  chip = loadImage("arrays/chip.jpg");
 }
 
 function setup(){
@@ -16,7 +15,7 @@ function setup(){
   chip.loadPixels();
 
   for(let y = 0; y < chip.height; y++){
-    for(let x = 0; y < chip.width; x++){
+    for(let x = 0; x < chip.width; x++){
       let index = (x + y * chip.width) * 4;
 
       let r = chip.pixels[index + 0];
