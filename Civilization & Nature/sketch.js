@@ -118,6 +118,11 @@ let fallSideDrift = 0.35;
 
 let wheatSpawnBaseY = 0; // where wheat grows from near the bottom
 
+let windStrength = 12; // Whole stem wind strength
+let windSpeed = 0.018; // Wind speed
+let branchWindStrength = 0.028; // Branch angle swing strength
+
+let wheatWindEnabled = false;
 
 //============================================================================================
 
@@ -677,7 +682,6 @@ function spawnWheatAt(x, baseY){
   wheatStalks.push(new WheatStalk(safeX, baseY));
 }
 
-
 function createWheatField(){
   let baseY = height - wheatBaseYOffset;
 
@@ -689,7 +693,10 @@ function createWheatField(){
 
 function updateAndDrawWheat(){
   for(let w of wheatStalks){
-    w.update();
+    if(w.grow < 1){
+      w.update();
+    }
+
     w.display();
   }
 }
@@ -699,49 +706,78 @@ class WheatStalk {
     if(baseY === undefined || isNaN(baseY)){
       baseY = height;
     }
-  
+
     this.x = x;
-    this.baseY = baseY;  
+    this.baseY = baseY;
 
-    this.h = random(180, 430);
-    this.lean = random(-45, 45);
+    // Main stem
+    this.h = random(90, 220);
+    this.lean = random(-35, 35);
     this.grow = 0;
-
     this.seed = random(1000);
-    this.side = random([-1, 1]);
 
-    this.headLength = random(45, 95);
-    this.grainCount = int(random(12, 26));
+    this.stemWeight = random(0.7, 1.2);
+    this.stemAlpha = random(230, 255);
 
-    this.stemWeight = random(0.5, 1.3);
-    this.stemAlpha = random(100, 210);
+    // Use stronger green colors for the main stem
+    this.stemColor = random([
+      attractedTextColor1,
+      attractedTextColor2
+    ]);
 
-    this.stemColor = random(attractedTextColors);
     this.grainColor = random() < 0.5 ? wheatGrainColor1 : wheatGrainColor2;
 
+    // Branches grow from the upper part of the stem
+    this.branchCount = int(random(6, 12));
+    this.branches = [];
 
-    this.headAngle = random(-0.15, 0.15) + this.side * random(0.25, 0.55);
+    for(let i = 0; i < this.branchCount; i++){
+      let t = map(i, 0, this.branchCount - 1, 0.45, 0.96);
+      t += random(-0.035, 0.035);
+      t = constrain(t, 0.38, 0.98);
 
-    // Pre-generate grains so they do not flicker every frame
-    this.grains = [];
+      let side = random([-1, 1]);
 
-    for(let i = 0; i < this.grainCount; i++){
-      let t = i / this.grainCount;
+      // Lower branches are longer, upper branches are shorter
+      let lengthFactor = map(t, 0.38, 0.98, 1.15, 0.55);
 
-      this.grains.push({
+      let branch = {
         t: t,
-        ch: wheatChars.charAt(int(random(wheatChars.length))),
-        offsetX: random(-5, 5),
-        offsetY: random(-4, 4),
-        spread: sin(t * PI) * random(8, 22),
-        size: random(7, 14),
-        rotation: random(-0.7, 0.7),
-        alpha: map(t, 0, 1, 230, 90)
-      });
+        side: side,
+        len: random(28, 62) * lengthFactor,
+        angleOffset: side * random(0.25, 0.55),
+        curve: random(-12, 12),
+        phase: random(TWO_PI),
+        flex: random(0.5, 1.25),
+        weight: random(0.6, 0.8),
+        chars: []
+      };
+
+      let charCount = int(random(4, 9));
+
+      for(let j = 0; j < charCount; j++){
+        let ct = map(j, 0, charCount - 1, 0.18, 1.0);
+
+        branch.chars.push({
+          t: ct,
+          ch: wheatChars.charAt(int(random(wheatChars.length))),
+          size: random(6, 12),
+          offset: random(-3, 3),
+          rotation: random(-0.5, 0.5),
+          alpha: random(130, 240)
+        });
+      }
+
+      this.branches.push(branch);
     }
   }
 
   update(){
+    // Once fully grown, stop updating.
+    if(this.grow >= 1){
+      return;
+    }
+
     this.grow = min(1, this.grow + wheatGrowSpeed);
   }
 
@@ -750,13 +786,30 @@ class WheatStalk {
 
     let g = easeOutCubic(this.grow);
 
-    // Gentle natural sway
-    let sway = sin(frameCount * 0.025 + this.seed) * 7;
+    // Wind should affect the top more than the bottom.
+    // This makes the stem bend naturally instead of moving like a stiff stick.
+    let totalWind = 0;
 
-    let topX = this.x + (this.lean + sway) * g;
-    let topY = this.baseY - this.h * g;
+    if(wheatWindEnabled == true){
+      let wind = sin(frameCount * windSpeed + this.seed) * windStrength;
+      let smallWind = sin(frameCount * windSpeed * 2.1 + this.seed * 0.7) * windStrength * 0.25;
+      totalWind = wind + smallWind;
+    }
 
-    // Draw stem
+    // Main stem control points
+    let x0 = this.x;
+    let y0 = this.baseY;
+
+    let x1 = this.x + this.lean * 0.15 + totalWind * 0.08 * g;
+    let y1 = this.baseY - this.h * 0.35 * g;
+
+    let x2 = this.x + this.lean * 0.55 + totalWind * 0.38 * g;
+    let y2 = this.baseY - this.h * 0.72 * g;
+
+    let x3 = this.x + this.lean + totalWind * 0.75 * g;
+    let y3 = this.baseY - this.h * g;
+
+    // Draw main stem
     let stemCol = color(this.stemColor);
     stemCol.setAlpha(this.stemAlpha);
 
@@ -764,54 +817,110 @@ class WheatStalk {
     strokeWeight(this.stemWeight);
     noFill();
 
-    bezier(
-      this.x,
-      this.baseY,
-      this.x + this.lean * 0.15,
-      this.baseY - this.h * 0.35 * g,
-      this.x + this.lean * 0.55,
-      this.baseY - this.h * 0.7 * g,
-      topX,
-      topY
-    );
+    bezier(x0, y0, x1, y1, x2, y2, x3, y3);
 
-    // Draw wheat head after the stem grows halfway
-    if(this.grow > 0.45){
-      let headGrow = map(this.grow, 0.45, 1, 0, 1);
-      headGrow = constrain(headGrow, 0, 1);
-      headGrow = easeOutCubic(headGrow);
+    // Draw branches
+    for(let b of this.branches){
+      // A branch only appears after the main stem grows past its position
+      if(g < b.t){
+        continue;
+      }
 
-      this.drawHead(topX, topY, headGrow);
+      let branchGrow = map(g, b.t, 1, 0, 1);
+      branchGrow = constrain(branchGrow, 0, 1);
+      branchGrow = easeOutCubic(branchGrow);
+
+      this.drawBranch(b, branchGrow, x0, y0, x1, y1, x2, y2, x3, y3);
     }
 
     pop();
   }
 
-  drawHead(topX, topY, headGrow){
+  drawBranch(b, branchGrow, x0, y0, x1, y1, x2, y2, x3, y3){
+    // Get branch base point on the stem
+    let bx = bezierPoint(x0, x1, x2, x3, b.t);
+    let by = bezierPoint(y0, y1, y2, y3, b.t);
+
+    // Estimate stem tangent direction
+    let t1 = constrain(b.t - 0.01, 0, 1);
+    let t2 = constrain(b.t + 0.01, 0, 1);
+
+    let px1 = bezierPoint(x0, x1, x2, x3, t1);
+    let py1 = bezierPoint(y0, y1, y2, y3, t1);
+    let px2 = bezierPoint(x0, x1, x2, x3, t2);
+    let py2 = bezierPoint(y0, y1, y2, y3, t2);
+
+    let stemAngle = atan2(py2 - py1, px2 - px1);
+
+    // Branch has its own wind movement
+    let branchWind = 0;
+
+    if(wheatWindEnabled == true){
+      branchWind =
+        sin(frameCount * windSpeed * 2.6 + this.seed + b.phase) *
+        branchWindStrength *
+        b.flex;
+    }
+
+    let branchAngle = stemAngle + b.angleOffset + branchWind;
+
+    let len = b.len * branchGrow;
+
+    let ex = bx + cos(branchAngle) * len;
+    let ey = by + sin(branchAngle) * len;
+
+    // Curved branch control point
+    let cx = bx + cos(branchAngle) * len * 0.55 + cos(branchAngle + HALF_PI) * b.curve * branchGrow;
+    let cy = by + sin(branchAngle) * len * 0.55 + sin(branchAngle + HALF_PI) * b.curve * branchGrow;
+
+    // Branch turns from green to golden as it matures
+    let mature = constrain(map(this.grow, 0.55, 1, 0, 1), 0, 1);
+
+    let branchCol = lerpColor(
+      color(this.stemColor),
+      color(this.grainColor),
+      mature
+    );
+
+    branchCol.setAlpha(180);
+
+    stroke(branchCol);
+    strokeWeight(b.weight);
+    noFill();
+
+    bezier(
+      bx,
+      by,
+      cx,
+      cy,
+      cx,
+      cy,
+      ex,
+      ey
+    );
+
+    // Draw grain characters along the branch
     noStroke();
     textAlign(CENTER, CENTER);
     textFont("Georgia");
 
-    for(let grain of this.grains){
-      // Let grains appear gradually from bottom to top
-      let appear = map(headGrow - grain.t, 0, 0.35, 0, 1);
+    for(let grain of b.chars){
+      let appear = map(branchGrow - grain.t * 0.75, 0, 0.35, 0, 1);
       appear = constrain(appear, 0, 1);
 
       if(appear <= 0){
         continue;
       }
 
-      let t = grain.t;
+      let gt = grain.t;
 
-      let distance = this.headLength * t;
-      let gx = topX + cos(this.headAngle) * distance;
-      let gy = topY + sin(this.headAngle) * distance + t * 35;
+      // Approximate point along branch curve
+      let gx = bezierPoint(bx, cx, cx, ex, gt);
+      let gy = bezierPoint(by, cy, cy, ey, gt);
 
-      gx += grain.offsetX;
-      gy += grain.offsetY;
-
-      // Side spread makes the head look like a real wheat ear
-      gx += this.side * grain.spread;
+      // Slightly separate characters from the branch
+      gx += cos(branchAngle + HALF_PI) * grain.offset;
+      gy += sin(branchAngle + HALF_PI) * grain.offset;
 
       let grainCol = color(this.grainColor);
       grainCol.setAlpha(grain.alpha * appear);
@@ -821,7 +930,7 @@ class WheatStalk {
 
       push();
       translate(gx, gy);
-      rotate(this.headAngle + grain.rotation);
+      rotate(branchAngle + grain.rotation);
       text(grain.ch, 0, 0);
       pop();
     }
@@ -843,7 +952,6 @@ function drawTitle(){
   textFont(titleFontEnglish);
   textSize(titleEnglishSize);
   text(titleEnglish, titleX, titleY);
-
 
   // Chinese title
   textFont(titleFontChinese);
