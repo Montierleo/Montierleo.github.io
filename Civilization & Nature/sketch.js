@@ -6,6 +6,8 @@
 //                                  GLOBAL VARIABLE AREA
 //============================================================================================
 
+let showIntro = true;
+
 // Canvas
 let canvasW = 600;
 let canvasH = 800;
@@ -263,6 +265,16 @@ function draw() { // Fix up: Order
 
   // Draw title last, so the title stays clear
   drawTitle();
+
+  if(showIntro == true){
+    drawIntroPopup();
+  }
+
+  if(showIntro == false){
+    updateHarvestText();
+    triggerGoldenCharFall();
+    updateFallingChars();
+  }
 
   previousMouseX = mouseX;
   previousMouseY = mouseY;
@@ -997,7 +1009,68 @@ function drawTitle(){
   pop();
 }
 
+function drawIntroPopup(){
+  push();
+
+  // dark transparent background
+  fill(0, 0, 0, 90);
+  noStroke();
+  rect(0, 0, width, height);
+
+  // popup box
+  let boxW = 430;
+  let boxH = 300;
+  let boxX = width / 2 - boxW / 2;
+  let boxY = height / 2 - boxH / 2;
+
+  fill("#f9f8f4");
+  stroke("#6b776b");
+  strokeWeight(1.5);
+  rect(boxX, boxY, boxW, boxH, 18);
+
+  // title
+  noStroke();
+  fill("#3f4a3f");
+  textAlign(CENTER, TOP);
+  textFont("Georgia");
+  textSize(26);
+  text("Civilization & Nature", width / 2, boxY + 28);
+
+  // subtitle
+  textSize(14);
+  fill("#6b776b");
+  text("Interactive Guide", width / 2, boxY + 64);
+
+  // instructions
+  textAlign(LEFT, TOP);
+  textSize(15);
+  fill("#333333");
+
+  let guideX = boxX + 48;
+  let guideY = boxY + 105;
+  let gap = 36;
+
+  text("Spacebar: plant letters into a forest", guideX, guideY);
+  text("Hold Left Mouse: let the text ripen into gold", guideX, guideY + gap);
+  text("Hold Right Mouse: let golden letters fall as seeds", guideX, guideY + gap * 2);
+  text("Move Mouse: distrub the leaves gently", guideX, guideY + gap * 3);
+
+  // closing hint
+  textAlign(CENTER, TOP);
+  textSize(13);
+  fill("#777777");
+  text("Click or press any key to begin", width / 2, boxY + boxH - 45);
+
+  pop();
+}
+
+
 function mousePressed(){
+  if(showIntro == true){
+    showIntro = false;
+    return false;
+  }
+
   if(mouseButton === LEFT){
     leftHeld = true;
     harvestMode = true;
@@ -1023,6 +1096,11 @@ function mouseReleased(){
 }
 
 function keyPressed(){
+  if(showIntro == true){
+    showIntro = false;
+    return false;
+  }
+
   if(key ===" " && spacePressed === false){
     spacePressed = true;
 
